@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, redirect, render_template, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
 import jinja2
@@ -15,7 +15,7 @@ app.config['DEBUG'] = True
 # Note: the connection string after :// contains the following info:
 # user:password@server:portNumber/databaseName
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://build-a-blog:123456@localhost:8889/build-a-blog'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://blogz:123456@localhost:8889/blogz'
 app.config['SQLALCHEMY_ECHO'] = True
 db = SQLAlchemy(app)
 
@@ -60,6 +60,7 @@ def add_post(mytitle, mytext):
     messg = Posts(mytitle)
     messg.title = mytitle
     messg.text = mytext
+
     db.session.add(messg)
     db.session.commit()
 
@@ -79,6 +80,15 @@ def newpost():
 def form_post():
     title = request.form['title']
     maintext = request.form['maintext']
+   
+    titleerr = ""
+    if title == "" or maintext == "":
+        if title == "":
+            titleerr = 'The title is empty'
+        if maintext == "":
+            titleerr = titleerr + ' The text is empty'
+        template = jinja_env.get_template('newpost_tmpl.html')
+        return template.render(titleerr=titleerr)
     add_post(title, maintext)
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext)
@@ -92,5 +102,6 @@ def show_post():
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    app.secret_key = os.urandom(24)
     app.run()
