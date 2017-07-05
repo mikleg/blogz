@@ -49,9 +49,23 @@ def require_login():
     allowed_routes = ['login', 'blog', 'index', 'signup']
     if request.endpoint not in allowed_routes and 'username' not in session:
         return redirect('/login')
+def make_err_msg(msg_lst):
+    res = ""
+    for i in range(1, len(msg_lst)):
+        if i>1:
+            res = res + ", "
+        res = res + msg_lst[i]
+    return res
 
+def check_passwd(passwd, hash):
+    if passwd == hash:
+        return True
+    else: 
+        return False    
+        
 @app.route('/signup', methods=['POST', 'GET'])
 def signup():
+    msg_lst=[""]
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -68,27 +82,32 @@ def signup():
             return redirect('/blog')
         else: 
             # TODO - user better response messaging
-            msg = "Duplicate user"
-            return "<h1>Duplicate user</h1>"
-    msg = ""
+            msg_lst.append("Duplicate user")
+            
+    
     template = jinja_env.get_template('signup.html')
-    return template.render(errormessage=msg)
+    return template.render(errormessage=make_err_msg(msg_lst))
 
 @app.route('/login', methods=['POST', 'GET'])
 def login():
-    msg=""
+    msg_lst=[""]
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
-        if user and user.password == password:
+        template = jinja_env.get_template('login.html')
+        if user.username != username:
+            msg_lst.append('User does not exist')
+            return template.render(errormessage=make_err_msg(msg_lst))
+        elif check_passwd(password, user.password):
             session['username'] = username
             flash("Logged in")
             return redirect('/newpost')
         else:
-            msg ='User password incorrect, or user does not exist'
-    template = jinja_env.get_template('login.html')
-    return template.render(errormessage=msg)
+            msg_lst.append('User password incorrect')
+    template = jinja_env.get_template('login.html')        
+    return template.render(errormessage=make_err_msg(msg_lst))
     
 
 @app.route('/logout')
