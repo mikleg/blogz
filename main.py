@@ -1,7 +1,7 @@
-from flask import Flask, request, redirect, render_template, flash
+from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
-import jinja2
+import jinja2 
 
 
 
@@ -18,21 +18,90 @@ app.config['DEBUG'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://blogz:123456@localhost:8889/blogz'
 app.config['SQLALCHEMY_ECHO'] = True
 db = SQLAlchemy(app)
+app.secret_key = 'secret'
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(60), unique=True)
+    password = db.Column(db.String(60))
+    pw_hash = db.Column(db.String(120))
+    blogs = db.relationship('Posts', backref='author')
+
+    def __init__(self, name, password):
+        self.username = name
+        self.password = password
+
 
 class Posts(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(120))
     text = db.Column(db.Text)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, title, text, author):
+        self.title = title
+        self.text = text
+        self.author_id = author
 
-posts=[["heading1","text1ext1",0],["heading2","text2 text2",1]] #posts -- list of all posts (for debugging only)
+@app.before_request
+def require_login():
+    allowed_routes = ['login', 'blog', 'index', 'signup']
+    if request.endpoint not in allowed_routes and 'username' not in session:
+        return redirect('/login')
+
+@app.route('/signup', methods=['POST', 'GET'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        verify = request.form['verify']
+
+        # TODO - validate user's data
+
+        existing_user = User.query.filter_by(username=username).first()
+        if not existing_user:
+            new_user = User(username, password)
+            db.session.add(new_user)
+            db.session.commit()
+            session['username'] = username
+            return redirect('/blog')
+        else: 
+            # TODO - user better response messaging
+            msg = "Duplicate user"
+            return "<h1>Duplicate user</h1>"
+    msg = ""
+    template = jinja_env.get_template('signup.html')
+    return template.render(errormessage=msg)
+
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+    msg=""
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and user.password == password:
+            session['username'] = username
+            flash("Logged in")
+            return redirect('/newpost')
+        else:
+            msg ='User password incorrect, or user does not exist'
+    template = jinja_env.get_template('login.html')
+    return template.render(errormessage=msg)
+    
+
+@app.route('/logout')
+def logout():
+    del session['username']
+    return redirect('/blog')
+
 @app.route("/")
 def index():
-    template = jinja_env.get_template('error_login_form.html')
-    return template.render()
+    template = jinja_env.get_template('index.html')
+    allusers = User.query.all()
+    return template.render(users_list=allusers)
+
 
 def get_post(number):
     mylist = [[]]
@@ -56,20 +125,30 @@ def get_post(number):
     else:
         return ["error_index", "error"]
 
-def add_post(mytitle, mytext):
+'''def add_post(mytitle, mytext):
     messg = Posts(mytitle)
     messg.title = mytitle
     messg.text = mytext
 
     db.session.add(messg)
     db.session.commit()
+'''
+
 
 # The main page
 @app.route("/blog")
 def blog():
+    if request.args.get("user") is not None:
+        id = int(request.args.get("user"))
+        allposts = Posts.query.filter_by(author_id=id).all()
+    else:
+        allposts = Posts.query.all()
+    
     template = jinja_env.get_template('blog_tmpl.html')
-    post_list = get_post('all')
-    return template.render(post_list=post_list)
+    
+    
+    return template.render(post_list=allposts)
+
 
 @app.route("/newpost")
 def newpost():
@@ -78,6 +157,8 @@ def newpost():
 
 @app.route("/newpost", methods=['POST'])
 def form_post():
+    author = User.query.filter_by(username=session['username']).first()
+    
     title = request.form['title']
     maintext = request.form['maintext']
    
@@ -89,18 +170,29 @@ def form_post():
             titleerr = titleerr + ' The text is empty'
         template = jinja_env.get_template('newpost_tmpl.html')
         return template.render(titleerr=titleerr)
-    add_post(title, maintext)
+    #add_post(title, maintext)
+    messg = Posts(title, maintext, author.id)
+    db.session.add(messg)
+    db.session.commit()
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext)
     
 
 @app.route('/post')
-def show_post():
+def show_post2():
     id = int(request.args.get("id"))
     title = get_post(id)[0][0]
     maintext = get_post(id)[0][1]
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext)
+
+@app.route('/blog')
+def show_post():
+    id = int(request.args.get("user"))
+    allposts = Posts.query.filter_by(user_id=id).all()
+    template = jinja_env.get_template('blog_tmpl.html')
+    return template.render(post_list=allposts)
+
 
 if __name__ == "__main__":
     app.secret_key = os.urandom(24)

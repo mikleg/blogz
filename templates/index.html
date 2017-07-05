@@ -7,13 +7,13 @@
     </style>
 {% endblock %}
 {% block content %}
-    <h1>My blog</h1>
-    <ul id="posts">
+    <h1>All authors</h1>
+    <ul id="authors">
     
-    {% for pst in post_list %}
+    {% for authr in users_list %}
    
-        <li><p > <a id= "tile" href="/post?id={{ pst.id }}">{{pst.title}}</a></p>
-            <p> {{ pst[1] }}</p>
+        <li><p > <a id= "name" href="/blog?user={{ authr.id }}">{{ authr.username }}</a></p>
+            
         </li>
     {% endfor %}
     </ul>

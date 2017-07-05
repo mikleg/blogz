@@ -9,10 +9,18 @@
     <div id="menu">
         <nav>
         <a href="/newpost">Add a new post</a>
-        <br>
+        
         <a href="/blog">Back to main page</a>
+        
+        <a href='/logout'>log out</a>
+
+        <a href='/login'>login</a>
+
+        <a href='/'>Home</a>
         </nav>
+    {{errormessage}}
     </div>
+
     <div id="content">{% block content %}{% endblock %}</div>
 </body>
 </html>
