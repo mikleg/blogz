@@ -82,16 +82,13 @@ def signup():
             return redirect('/blog')
         else: 
             # TODO - user better response messaging
-            msg_lst.append("Duplicate user")
-            
-    
+            msg_lst.append("This username alredy taken")
     template = jinja_env.get_template('signup.html')
     return template.render(errormessage=make_err_msg(msg_lst))
 
 @app.route('/login', methods=['POST', 'GET'])
 def login():
     msg_lst=[""]
-    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -106,7 +103,7 @@ def login():
             return redirect('/newpost')
         else:
             msg_lst.append('User password incorrect')
-    template = jinja_env.get_template('login.html')        
+    template = jinja_env.get_template('login.html')
     return template.render(errormessage=make_err_msg(msg_lst))
     
 
@@ -154,7 +151,6 @@ def get_post(number):
 '''
 
 
-# The main page
 @app.route("/blog")
 def blog():
     if request.args.get("user") is not None:
@@ -162,10 +158,7 @@ def blog():
         allposts = Posts.query.filter_by(author_id=id).all()
     else:
         allposts = Posts.query.all()
-    
     template = jinja_env.get_template('blog_tmpl.html')
-    
-    
     return template.render(post_list=allposts)
 
 
@@ -177,25 +170,21 @@ def newpost():
 @app.route("/newpost", methods=['POST'])
 def form_post():
     author = User.query.filter_by(username=session['username']).first()
-    
+    msg_lst = [""]
     title = request.form['title']
     maintext = request.form['maintext']
-   
-    titleerr = ""
     if title == "" or maintext == "":
         if title == "":
-            titleerr = 'The title is empty'
+            msg_lst.append('The title is empty')
         if maintext == "":
-            titleerr = titleerr + ' The text is empty'
+            msg_lst.append('The text is empty')
         template = jinja_env.get_template('newpost_tmpl.html')
-        return template.render(titleerr=titleerr)
-    #add_post(title, maintext)
+        return template.render(errormessage=make_err_msg(msg_lst))
     messg = Posts(title, maintext, author.id)
     db.session.add(messg)
     db.session.commit()
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext)
-    
 
 @app.route('/post')
 def show_post2():
