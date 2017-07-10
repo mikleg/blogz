@@ -1,22 +1,40 @@
 <!DOCTYPE html>
 <head>
     {% block head %}
-    <!--<link rel="stylesheet" href="style.css" />-->
+    <style type="text/css">
+    nav ul {
+    padding: 0;
+    display: inline-block;
+}
+
+nav ul li {
+    list-style: none;
+    display: inline-block;
+    margin-right: 15px;
+}
+
+nav #login {
+    float: right;
+}
+    </style>
+
     <title>{% block title %}{% endblock %} </title>
     {% endblock %}
 </head>
 <body>
     <div id="menu">
         <nav>
-        <a href="/newpost">Add a new post</a>
-        
-        <a href="/blog">Back to main page</a>
-        
-        <a href='/logout'>log out</a>
 
-        <a href='/login'>login</a>
-
-        <a href='/'>Home</a>
+        <ul id="login">
+                <li><a href='/login'>login</a></li>
+                <li><a href='/logout'>log out</a></li>
+        </ul>
+            <ul>
+                <li><a href='/'>home</a></li>
+                <li><a href="/blog">all posts</a></li>
+                <li><a href="/newpost">new post</a></li>
+            </ul>
+        
         </nav>
     
     </div>

@@ -1,7 +1,8 @@
 from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
-import jinja2 
+import jinja2
+#import sys #debug 
 
 
 
@@ -44,11 +45,6 @@ class Posts(db.Model):
         self.text = text
         self.author_id = author
 
-@app.before_request
-def require_login():
-    allowed_routes = ['login', 'blog', 'index', 'signup']
-    if request.endpoint not in allowed_routes and 'username' not in session:
-        return redirect('/login')
 def make_err_msg(msg_lst):
     res = ""
     for i in range(1, len(msg_lst)):
@@ -57,12 +53,38 @@ def make_err_msg(msg_lst):
         res = res + msg_lst[i]
     return res
 
+@app.before_request
+def require_login():
+    allowed_routes = ['login', 'blog', 'index', 'signup', 'show_post2', 'show_post', 'None', None, 'styles.css']
+    #print("req.endpt=", request.endpoint, file=sys.stderr)
+    if request.endpoint not in allowed_routes and 'username' not in session:
+        return redirect('/login')
+
+
 def check_passwd(passwd, hash):
     if passwd == hash:
         return True
     else: 
         return False    
-        
+def check_new_username(name):
+    if len(name)<3:
+        res = "Too short username"
+    elif len(name)>60:
+        res = "Too long username"
+    
+    else: res = "" 
+    # To do: check for all space
+    return res
+
+def check_new_password(name):
+    if len(name)<3:
+        res = "Too short password"
+    elif len(name)>60:
+        res = "Too long password"
+    
+    else: res = "" 
+    return res
+
 @app.route('/signup', methods=['POST', 'GET'])
 def signup():
     msg_lst=[""]
@@ -71,17 +93,20 @@ def signup():
         password = request.form['password']
         verify = request.form['verify']
 
-        # TODO - validate user's data
-
         existing_user = User.query.filter_by(username=username).first()
-        if not existing_user:
+        if check_new_username(username) != "":
+            msg_lst.append(check_new_username(username))
+        if check_new_password(password) != "":
+            msg_lst.append(check_new_password(password))
+        if password != verify:
+            msg_lst.append("verefy !=")    
+        if not existing_user and len(msg_lst) == 1:
             new_user = User(username, password)
             db.session.add(new_user)
             db.session.commit()
             session['username'] = username
             return redirect('/blog')
-        else: 
-            # TODO - user better response messaging
+        elif existing_user: 
             msg_lst.append("This username alredy taken")
     template = jinja_env.get_template('signup.html')
     return template.render(errormessage=make_err_msg(msg_lst))
@@ -94,7 +119,7 @@ def login():
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
         template = jinja_env.get_template('login.html')
-        if user.username != username:
+        if User.query.filter_by(username=username).count() == 0:
             msg_lst.append('User does not exist')
             return template.render(errormessage=make_err_msg(msg_lst))
         elif check_passwd(password, user.password):
@@ -141,26 +166,26 @@ def get_post(number):
     else:
         return ["error_index", "error"]
 
-'''def add_post(mytitle, mytext):
-    messg = Posts(mytitle)
-    messg.title = mytitle
-    messg.text = mytext
-
-    db.session.add(messg)
-    db.session.commit()
-'''
-
-
 @app.route("/blog")
 def blog():
+    title=""
+    mylist=[]
     if request.args.get("user") is not None:
         id = int(request.args.get("user"))
         allposts = Posts.query.filter_by(author_id=id).all()
+        Author = User.query.filter_by(id=id).first()
+        title = "All the posts written by "+Author.username
+        for elem in allposts:
+            mylist.append([elem, Author])
     else:
         allposts = Posts.query.all()
-    template = jinja_env.get_template('blog_tmpl.html')
-    return template.render(post_list=allposts)
+        title = "My blog"
+        for elem in allposts:
+            mylist.append([elem, User.query.filter_by(id=elem.author_id).first()])
 
+    template = jinja_env.get_template('blog_tmpl.html')
+    #return template.render(post_list=allposts, Author=Author, title=title)
+    return template.render(list=mylist, title=title)
 
 @app.route("/newpost")
 def newpost():
@@ -184,15 +209,18 @@ def form_post():
     db.session.add(messg)
     db.session.commit()
     template = jinja_env.get_template('singl_post_tmpl.html')
-    return template.render(tmpl_title=title, maintext=maintext)
+    return template.render(tmpl_title=title, maintext=maintext, authr=author)
 
 @app.route('/post')
 def show_post2():
     id = int(request.args.get("id"))
-    title = get_post(id)[0][0]
-    maintext = get_post(id)[0][1]
+    Rec = Posts.query.filter_by(id=id).first()
+    title = Rec.title
+    maintext = Rec.text
+    author_id = Rec.author_id
+    Author = User.query.filter_by(id=author_id).first()
     template = jinja_env.get_template('singl_post_tmpl.html')
-    return template.render(tmpl_title=title, maintext=maintext)
+    return template.render(tmpl_title=title, maintext=maintext, authr=Author)
 
 @app.route('/blog')
 def show_post():

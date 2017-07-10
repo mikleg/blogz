@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}My blog{% endblock %}
+{% block title %}{% endblock %}
 {% block head %}
     {{ super() }}
     <style type="text/css">
@@ -7,13 +7,15 @@
     </style>
 {% endblock %}
 {% block content %}
-    <h1>My blog</h1>
+    
+    <h1>{{title}}</h1>
     <ul id="posts">
     
-    {% for pst in post_list %}
+    {% for pst in list %}
    
-        <li><p > <a id= "tile" href="/post?id={{ pst.id }}">{{pst.title}}</a></p>
-            <p> {{ pst[1] }}</p>
+        <li><p > <a id= "tile" href="/post?id={{ pst[0].id }}">{{pst[0].title}}</a></p>
+            <p> {{ pst[0].text }}</p>
+            <p> written by: <a href="/blog?user={{ pst[1].id }}">{{ pst[1].username }}</a></p>
         </li>
     {% endfor %}
     </ul>
