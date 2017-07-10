@@ -2,7 +2,11 @@ from flask import Flask, request, redirect, render_template, session, flash
 from flask_sqlalchemy import SQLAlchemy
 import os
 import jinja2
-#import sys #debug 
+#import sys #debug
+import hashlib
+import random
+import string
+
 
 
 
@@ -24,13 +28,14 @@ app.secret_key = 'secret'
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     username = db.Column(db.String(60), unique=True)
-    password = db.Column(db.String(60))
     pw_hash = db.Column(db.String(120))
+    salt = db.Column(db.String(60))
     blogs = db.relationship('Posts', backref='author')
 
-    def __init__(self, name, password):
+    def __init__(self, name, pw_hash, salt):
         self.username = name
-        self.password = password
+        self.pw_hash = pw_hash
+        self.salt = salt
 
 
 class Posts(db.Model):
@@ -53,6 +58,24 @@ def make_err_msg(msg_lst):
         res = res + msg_lst[i]
     return res
 
+def salt():
+    res=''
+    for i in range(20):
+        res=res+random.choice(string.ascii_letters)
+    return res
+
+def hash(password, salt):
+    hash = hashlib.sha256(str.encode(password + salt)).hexdigest()
+    return hash
+
+
+def check_passwd(passwd, hah, salt):
+    hh=hash(passwd, salt)
+    if hh != hah:
+        return False
+    else:
+        return True
+
 @app.before_request
 def require_login():
     allowed_routes = ['login', 'blog', 'index', 'signup', 'show_post2', 'show_post', 'None', None, 'styles.css']
@@ -60,19 +83,13 @@ def require_login():
     if request.endpoint not in allowed_routes and 'username' not in session:
         return redirect('/login')
 
-
-def check_passwd(passwd, hash):
-    if passwd == hash:
-        return True
-    else: 
-        return False    
 def check_new_username(name):
     if len(name)<3:
         res = "Too short username"
     elif len(name)>60:
         res = "Too long username"
     
-    else: res = "" 
+    else: res = ""
     # To do: check for all space
     return res
 
@@ -101,11 +118,12 @@ def signup():
         if password != verify:
             msg_lst.append("verefy !=")    
         if not existing_user and len(msg_lst) == 1:
-            new_user = User(username, password)
+            mysalt = salt()
+            new_user = User(username, hash(password, mysalt), mysalt)
             db.session.add(new_user)
             db.session.commit()
             session['username'] = username
-            return redirect('/blog')
+            return redirect('/newpost')
         elif existing_user: 
             msg_lst.append("This username alredy taken")
     template = jinja_env.get_template('signup.html')
@@ -122,7 +140,7 @@ def login():
         if User.query.filter_by(username=username).count() == 0:
             msg_lst.append('User does not exist')
             return template.render(errormessage=make_err_msg(msg_lst))
-        elif check_passwd(password, user.password):
+        elif check_passwd(password, user.pw_hash, user.salt):
             session['username'] = username
             flash("Logged in")
             return redirect('/newpost')
@@ -142,29 +160,6 @@ def index():
     template = jinja_env.get_template('index.html')
     allusers = User.query.all()
     return template.render(users_list=allusers)
-
-
-def get_post(number):
-    mylist = [[]]
-    i = 0
-    q = Posts.query.all()
-    listid = []
-    for elem in q:
-        listid.append(elem.id-1)
-
-    maxid = max(listid)
-
-    if number == "all":
-        for elem in q:
-            mylist.append([elem.title, elem.text, elem.id-1])
-        mylist.pop(0)
-        return mylist
-    elif number >= 0 and number <= maxid:
-        q = Posts.query.get(number+1)
-        mylist[0] = [q.title, q.text, q.id]
-        return mylist
-    else:
-        return ["error_index", "error"]
 
 @app.route("/blog")
 def blog():
@@ -221,14 +216,6 @@ def show_post2():
     Author = User.query.filter_by(id=author_id).first()
     template = jinja_env.get_template('singl_post_tmpl.html')
     return template.render(tmpl_title=title, maintext=maintext, authr=Author)
-
-@app.route('/blog')
-def show_post():
-    id = int(request.args.get("user"))
-    allposts = Posts.query.filter_by(user_id=id).all()
-    template = jinja_env.get_template('blog_tmpl.html')
-    return template.render(post_list=allposts)
-
 
 if __name__ == "__main__":
     app.secret_key = os.urandom(24)
